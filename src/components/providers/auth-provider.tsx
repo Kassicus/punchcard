@@ -93,10 +93,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         console.log('Auth check complete, user:', currentUser?.email || 'none')
         setUser(currentUser)
-        if (currentUser) {
-          await fetchProfile(currentUser.id)
-        }
+        // Complete auth immediately, fetch profile in background
         completeAuth()
+        if (currentUser) {
+          fetchProfile(currentUser.id) // Don't await - load in background
+        }
       } catch (err) {
         console.error('Error in getUser:', err)
         if (isMounted) {
@@ -111,19 +112,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
+      (event: AuthChangeEvent, session: Session | null) => {
         if (!isMounted) return
         console.log('Auth state changed:', event)
         const currentUser = session?.user ?? null
         setUser(currentUser)
+        // Complete auth immediately
+        completeAuth()
 
         if (currentUser) {
-          await fetchProfile(currentUser.id)
+          fetchProfile(currentUser.id) // Don't await - load in background
         } else {
           setProfile(null)
         }
-
-        completeAuth()
       }
     )
 
