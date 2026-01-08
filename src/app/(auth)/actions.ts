@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 
 export async function signUp(formData: FormData) {
   const supabase = await createClient()
@@ -26,7 +26,10 @@ export async function signUp(formData: FormData) {
     return { error: error.message }
   }
 
-  redirect('/dashboard')
+  // Revalidate to ensure fresh data
+  revalidatePath('/', 'layout')
+
+  return { success: true }
 }
 
 export async function signIn(formData: FormData) {
@@ -44,11 +47,18 @@ export async function signIn(formData: FormData) {
     return { error: error.message }
   }
 
-  redirect('/dashboard')
+  // Revalidate to ensure fresh data
+  revalidatePath('/', 'layout')
+
+  return { success: true }
 }
 
 export async function signOut() {
   const supabase = await createClient()
   await supabase.auth.signOut()
-  redirect('/login')
+
+  // Revalidate to ensure fresh data
+  revalidatePath('/', 'layout')
+
+  return { success: true }
 }

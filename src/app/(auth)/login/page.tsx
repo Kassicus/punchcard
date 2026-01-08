@@ -20,7 +20,12 @@ export default function LoginPage() {
     if (result?.error) {
       setError(result.error)
       setIsLoading(false)
+      return
     }
+
+    // Success - refresh to pick up new cookies, then navigate
+    router.refresh()
+    router.push('/dashboard')
   }
 
   return (

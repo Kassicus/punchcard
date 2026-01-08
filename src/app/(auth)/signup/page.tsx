@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button, Input, Card, CardContent } from '@/components/ui'
 import { signUp } from '../actions'
 
 export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
   async function handleSubmit(formData: FormData) {
     setIsLoading(true)
@@ -33,7 +35,12 @@ export default function SignUpPage() {
     if (result?.error) {
       setError(result.error)
       setIsLoading(false)
+      return
     }
+
+    // Success - refresh to pick up new cookies, then navigate
+    router.refresh()
+    router.push('/dashboard')
   }
 
   return (
