@@ -112,8 +112,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut()
       setUser(null)
       setProfile(null)
-      router.refresh()
-      router.push('/login')
+      // Force a hard navigation to ensure cookies are cleared
+      window.location.href = '/login'
     } catch (err) {
       console.error('Error signing out:', err)
     }

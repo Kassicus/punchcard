@@ -1,31 +1,48 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button, Input, Card, CardContent } from '@/components/ui'
-import { signIn } from '../actions'
+import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const supabase = createClient()
+
+  // Check if already logged in
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        router.replace('/dashboard')
+      }
+    }
+    checkUser()
+  }, [])
 
   async function handleSubmit(formData: FormData) {
     setIsLoading(true)
     setError(null)
 
-    const result = await signIn(formData)
+    const email = formData.get('email') as string
+    const password = formData.get('password') as string
 
-    if (result?.error) {
-      setError(result.error)
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      setError(error.message)
       setIsLoading(false)
       return
     }
 
-    // Success - refresh to pick up new cookies, then navigate
-    router.refresh()
-    router.push('/dashboard')
+    // Force a hard navigation to ensure cookies are sent
+    window.location.href = '/dashboard'
   }
 
   return (
