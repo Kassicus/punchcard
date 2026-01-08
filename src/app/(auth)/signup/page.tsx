@@ -1,37 +1,37 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button, Input, Card, CardContent } from '@/components/ui'
 import { createClient } from '@/lib/supabase/client'
 
 export default function SignUpPage() {
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
   // Check if already logged in
   useEffect(() => {
+    const supabase = createClient()
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        router.replace('/dashboard')
+        window.location.href = '/dashboard'
       }
     }
     checkUser()
   }, [])
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     setIsLoading(true)
     setError(null)
-
-    const email = formData.get('email') as string
-    const password = formData.get('password') as string
-    const confirmPassword = formData.get('confirmPassword') as string
-    const firstName = formData.get('firstName') as string
-    const lastName = formData.get('lastName') as string
 
     if (password !== confirmPassword) {
       setError('Passwords do not match')
@@ -44,6 +44,8 @@ export default function SignUpPage() {
       setIsLoading(false)
       return
     }
+
+    const supabase = createClient()
 
     const { error } = await supabase.auth.signUp({
       email,
@@ -89,7 +91,7 @@ export default function SignUpPage() {
 
         <Card>
           <CardContent className="pt-6">
-            <form action={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                   {error}
@@ -104,6 +106,8 @@ export default function SignUpPage() {
                   autoComplete="given-name"
                   required
                   placeholder="John"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
                 />
                 <Input
                   label="Last name"
@@ -112,6 +116,8 @@ export default function SignUpPage() {
                   autoComplete="family-name"
                   required
                   placeholder="Doe"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
                 />
               </div>
 
@@ -122,6 +128,8 @@ export default function SignUpPage() {
                 autoComplete="email"
                 required
                 placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
 
               <Input
@@ -131,6 +139,8 @@ export default function SignUpPage() {
                 autoComplete="new-password"
                 required
                 placeholder="At least 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
 
               <Input
@@ -140,6 +150,8 @@ export default function SignUpPage() {
                 autoComplete="new-password"
                 required
                 placeholder="Confirm your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
               />
 
               <Button type="submit" className="w-full" size="lg" isLoading={isLoading}>

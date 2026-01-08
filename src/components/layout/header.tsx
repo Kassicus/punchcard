@@ -3,14 +3,32 @@
 import Link from 'next/link'
 import { useAuth } from '@/components/providers'
 import { Button } from '@/components/ui'
-import { useRouter } from 'next/navigation'
 
 export function Header() {
-  const { user, profile, signOut } = useAuth()
-  const router = useRouter()
+  const { user, profile, signOut, isLoading } = useAuth()
 
-  const handleSignOut = async () => {
-    await signOut()
+  const handleSignOut = () => {
+    signOut()
+  }
+
+  // Don't render auth-dependent UI until we know the auth state
+  if (isLoading) {
+    return (
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <Link href="/" className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span className="text-xl font-bold text-gray-900">PunchCard</span>
+            </Link>
+          </div>
+        </div>
+      </header>
+    )
   }
 
   return (
@@ -50,9 +68,13 @@ export function Header() {
                 <Link href="/settings" className="text-gray-600 hover:text-gray-900">
                   <span className="hidden sm:inline">{profile?.first_name} {profile?.last_name}</span>
                 </Link>
-                <Button variant="ghost" onClick={handleSignOut}>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 cursor-pointer bg-transparent text-gray-800 hover:bg-gray-100 hover:text-gray-900 focus:ring-gray-500 px-4 py-2 text-sm"
+                >
                   Sign Out
-                </Button>
+                </button>
               </>
             ) : (
               <>

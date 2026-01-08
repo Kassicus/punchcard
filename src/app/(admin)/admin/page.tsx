@@ -48,7 +48,7 @@ export default function AdminDashboardPage() {
         supabase.from('time_entries').select('duration_seconds').gte('start_time', startOfWeek.toISOString()),
       ])
 
-      const totalSecondsThisWeek = weekEntriesRes.data?.reduce((sum, e) => sum + (e.duration_seconds || 0), 0) || 0
+      const totalSecondsThisWeek = weekEntriesRes.data?.reduce((sum: number, e: { duration_seconds: number | null }) => sum + (e.duration_seconds || 0), 0) || 0
 
       setStats({
         totalUsers: usersRes.count || 0,

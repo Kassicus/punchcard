@@ -1,9 +1,8 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { User } from '@supabase/supabase-js'
+import type { User, AuthChangeEvent, Session } from '@supabase/supabase-js'
 import type { Profile } from '@/types/database'
 
 interface AuthContextType {
@@ -26,10 +25,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const router = useRouter()
-  const supabase = createClient()
 
   const fetchProfile = async (userId: string) => {
+    const supabase = createClient()
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -57,9 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    const supabase = createClient()
+
+    // Get initial user
     const getUser = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser()
+        const { data: { user: currentUser }, error } = await supabase.auth.getUser()
 
         if (error) {
           console.error('Error getting user:', error)
@@ -69,9 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        setUser(user)
-        if (user) {
-          await fetchProfile(user.id)
+        setUser(currentUser)
+        if (currentUser) {
+          await fetchProfile(currentUser.id)
         }
       } catch (err) {
         console.error('Error in getUser:', err)
@@ -84,8 +85,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     getUser()
 
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event: AuthChangeEvent, session: Session | null) => {
+        console.log('Auth state changed:', event)
         const currentUser = session?.user ?? null
         setUser(currentUser)
 
@@ -96,11 +99,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         setIsLoading(false)
-
-        // Refresh the page data when auth state changes
-        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-          router.refresh()
-        }
       }
     )
 
@@ -108,8 +106,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = async () => {
+    const supabase = createClient()
     try {
-      await supabase.auth.signOut()
+      console.log('Signing out...')
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error('Error signing out:', error)
+      }
       setUser(null)
       setProfile(null)
       // Force a hard navigation to ensure cookies are cleared

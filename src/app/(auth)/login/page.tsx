@@ -1,34 +1,36 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button, Input, Card, CardContent } from '@/components/ui'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
   // Check if already logged in
   useEffect(() => {
+    const supabase = createClient()
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        router.replace('/dashboard')
+        window.location.href = '/dashboard'
       }
     }
     checkUser()
   }, [])
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     setIsLoading(true)
     setError(null)
 
-    const email = formData.get('email') as string
-    const password = formData.get('password') as string
+    const supabase = createClient()
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -68,7 +70,7 @@ export default function LoginPage() {
 
         <Card>
           <CardContent className="pt-6">
-            <form action={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                   {error}
@@ -82,6 +84,8 @@ export default function LoginPage() {
                 autoComplete="email"
                 required
                 placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
 
               <Input
@@ -91,6 +95,8 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 required
                 placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
 
               <Button type="submit" className="w-full" size="lg" isLoading={isLoading}>
