@@ -57,14 +57,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const supabase = createClient()
     let isMounted = true
+    let hasCompletedAuth = false
 
     // Safety timeout - if auth takes too long, stop loading anyway
     const timeoutId = setTimeout(() => {
-      if (isMounted && isLoading) {
+      if (isMounted && !hasCompletedAuth) {
         console.warn('Auth check timed out after 5s, proceeding without auth')
         setIsLoading(false)
       }
     }, 5000)
+
+    const completeAuth = () => {
+      hasCompletedAuth = true
+      clearTimeout(timeoutId)
+      if (isMounted) {
+        setIsLoading(false)
+      }
+    }
 
     // Get initial user
     const getUser = async () => {
@@ -78,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error('Error getting user:', error)
           setUser(null)
           setProfile(null)
-          setIsLoading(false)
+          completeAuth()
           return
         }
 
@@ -87,16 +96,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (currentUser) {
           await fetchProfile(currentUser.id)
         }
+        completeAuth()
       } catch (err) {
         console.error('Error in getUser:', err)
         if (isMounted) {
           setUser(null)
           setProfile(null)
         }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false)
-        }
+        completeAuth()
       }
     }
 
@@ -116,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(null)
         }
 
-        setIsLoading(false)
+        completeAuth()
       }
     )
 
