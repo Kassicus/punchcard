@@ -56,11 +56,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const supabase = createClient()
+    let isMounted = true
+
+    // Safety timeout - if auth takes too long, stop loading anyway
+    const timeoutId = setTimeout(() => {
+      if (isMounted && isLoading) {
+        console.warn('Auth check timed out after 5s, proceeding without auth')
+        setIsLoading(false)
+      }
+    }, 5000)
 
     // Get initial user
     const getUser = async () => {
       try {
+        console.log('Checking auth state...')
         const { data: { user: currentUser }, error } = await supabase.auth.getUser()
+
+        if (!isMounted) return
 
         if (error) {
           console.error('Error getting user:', error)
@@ -70,16 +82,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return
         }
 
+        console.log('Auth check complete, user:', currentUser?.email || 'none')
         setUser(currentUser)
         if (currentUser) {
           await fetchProfile(currentUser.id)
         }
       } catch (err) {
         console.error('Error in getUser:', err)
-        setUser(null)
-        setProfile(null)
+        if (isMounted) {
+          setUser(null)
+          setProfile(null)
+        }
       } finally {
-        setIsLoading(false)
+        if (isMounted) {
+          setIsLoading(false)
+        }
       }
     }
 
@@ -88,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
+        if (!isMounted) return
         console.log('Auth state changed:', event)
         const currentUser = session?.user ?? null
         setUser(currentUser)
@@ -102,7 +120,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      isMounted = false
+      clearTimeout(timeoutId)
+      subscription.unsubscribe()
+    }
   }, [])
 
   const signOut = async () => {

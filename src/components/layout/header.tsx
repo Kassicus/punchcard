@@ -11,7 +11,7 @@ export function Header() {
     signOut()
   }
 
-  // Don't render auth-dependent UI until we know the auth state
+  // Show loading indicator but keep sign-in/sign-up buttons visible
   if (isLoading) {
     return (
       <header className="bg-white border-b border-gray-200">
@@ -25,6 +25,14 @@ export function Header() {
               </div>
               <span className="text-xl font-bold text-gray-900">PunchCard</span>
             </Link>
+            <div className="flex items-center space-x-4">
+              <Link href="/login">
+                <Button variant="ghost">Sign In</Button>
+              </Link>
+              <Link href="/signup">
+                <Button>Sign Up</Button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
