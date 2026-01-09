@@ -12,9 +12,10 @@ interface TimeEntryModalProps {
   onClose: () => void
   onSave: () => void
   mode?: 'timer' | 'quickEntry'
+  onTimerCleared?: () => void
 }
 
-export function TimeEntryModal({ isOpen, onClose, onSave, mode = 'timer' }: TimeEntryModalProps) {
+export function TimeEntryModal({ isOpen, onClose, onSave, mode = 'timer', onTimerCleared }: TimeEntryModalProps) {
   const { startTime, selectedProjectId, selectedCategoryId, resetTimer } = useTimerStore()
   const isQuickEntry = mode === 'quickEntry'
   const [projects, setProjects] = useState<Project[]>([])
@@ -125,6 +126,9 @@ export function TimeEntryModal({ isOpen, onClose, onSave, mode = 'timer' }: Time
         .eq('id', user.id)
 
       resetTimer()
+      // Refresh the profile to sync with the database, preventing the dashboard
+      // from incorrectly resuming the timer due to stale profile data
+      onTimerCleared?.()
     }
 
     setIsLoading(false)
@@ -147,6 +151,8 @@ export function TimeEntryModal({ isOpen, onClose, onSave, mode = 'timer' }: Time
           .eq('id', user.id)
       }
       resetTimer()
+      // Refresh the profile to sync with the database
+      onTimerCleared?.()
     }
     onClose()
   }

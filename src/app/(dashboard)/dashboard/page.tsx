@@ -13,14 +13,15 @@ export default function DashboardPage() {
   const [showModal, setShowModal] = useState(false)
   const [modalMode, setModalMode] = useState<'timer' | 'quickEntry'>('timer')
   const [recentEntries, setRecentEntries] = useState<(TimeEntry & { project?: Project; category?: Category })[]>([])
-  const { profile } = useAuth()
-  const { stopTimer, resumeTimer, isRunning } = useTimerStore()
+  const { profile, refreshProfile } = useAuth()
+  const { stopTimer, resumeTimer, isRunning, startTime } = useTimerStore()
   const supabase = createClient()
 
-  // Check for active timer on mount
+  // Check for active timer on mount - only resume if we don't already have a timer in the store
+  // The !startTime check prevents resuming when we've intentionally stopped (stopTimer only sets isRunning: false)
   useEffect(() => {
     const checkActiveTimer = async () => {
-      if (profile?.active_timer_start && !isRunning) {
+      if (profile?.active_timer_start && !isRunning && !startTime) {
         resumeTimer(
           new Date(profile.active_timer_start),
           profile.active_timer_project_id,
@@ -30,7 +31,7 @@ export default function DashboardPage() {
     }
 
     checkActiveTimer()
-  }, [profile, isRunning, resumeTimer])
+  }, [profile, isRunning, startTime, resumeTimer])
 
   // Fetch recent entries
   const fetchRecentEntries = async () => {
@@ -144,6 +145,7 @@ export default function DashboardPage() {
         onClose={() => setShowModal(false)}
         onSave={handleSave}
         mode={modalMode}
+        onTimerCleared={refreshProfile}
       />
     </div>
   )
