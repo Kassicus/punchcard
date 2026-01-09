@@ -48,7 +48,14 @@ export function formatDateTime(date: string | Date): string {
 }
 
 export function formatDateForInput(date: Date): string {
-  return date.toISOString().slice(0, 16)
+  // Use local time methods to format for datetime-local input
+  // (toISOString() returns UTC which causes timezone display issues)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
 export function getRelativeTime(date: string | Date): string {

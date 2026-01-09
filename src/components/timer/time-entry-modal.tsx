@@ -11,10 +11,12 @@ interface TimeEntryModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: () => void
+  mode?: 'timer' | 'quickEntry'
 }
 
-export function TimeEntryModal({ isOpen, onClose, onSave }: TimeEntryModalProps) {
+export function TimeEntryModal({ isOpen, onClose, onSave, mode = 'timer' }: TimeEntryModalProps) {
   const { startTime, selectedProjectId, selectedCategoryId, resetTimer } = useTimerStore()
+  const isQuickEntry = mode === 'quickEntry'
   const [projects, setProjects] = useState<Project[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [formData, setFormData] = useState({
@@ -43,17 +45,32 @@ export function TimeEntryModal({ isOpen, onClose, onSave }: TimeEntryModalProps)
   }, [])
 
   useEffect(() => {
-    if (isOpen && startTime) {
-      setFormData({
-        startTime: formatDateForInput(startTime),
-        endTime: formatDateForInput(new Date()),
-        projectId: selectedProjectId || '',
-        categoryId: selectedCategoryId || '',
-        notes: '',
-      })
-      setError(null)
+    if (isOpen) {
+      if (isQuickEntry) {
+        // Quick entry mode: default to last hour
+        const now = new Date()
+        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
+        setFormData({
+          startTime: formatDateForInput(oneHourAgo),
+          endTime: formatDateForInput(now),
+          projectId: '',
+          categoryId: '',
+          notes: '',
+        })
+        setError(null)
+      } else if (startTime) {
+        // Timer mode: use timer store values
+        setFormData({
+          startTime: formatDateForInput(startTime),
+          endTime: formatDateForInput(new Date()),
+          projectId: selectedProjectId || '',
+          categoryId: selectedCategoryId || '',
+          notes: '',
+        })
+        setError(null)
+      }
     }
-  }, [isOpen, startTime, selectedProjectId, selectedCategoryId])
+  }, [isOpen, startTime, selectedProjectId, selectedCategoryId, isQuickEntry])
 
   const handleSave = async () => {
     setIsLoading(true)
@@ -96,25 +113,8 @@ export function TimeEntryModal({ isOpen, onClose, onSave }: TimeEntryModalProps)
       return
     }
 
-    // Clear active timer from profile
-    await supabase
-      .from('profiles')
-      .update({
-        active_timer_start: null,
-        active_timer_project_id: null,
-        active_timer_category_id: null,
-      })
-      .eq('id', user.id)
-
-    resetTimer()
-    setIsLoading(false)
-    onSave()
-    onClose()
-  }
-
-  const handleDiscard = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
+    // Only clear active timer in timer mode (not quick entry)
+    if (!isQuickEntry) {
       await supabase
         .from('profiles')
         .update({
@@ -123,9 +123,31 @@ export function TimeEntryModal({ isOpen, onClose, onSave }: TimeEntryModalProps)
           active_timer_category_id: null,
         })
         .eq('id', user.id)
+
+      resetTimer()
     }
 
-    resetTimer()
+    setIsLoading(false)
+    onSave()
+    onClose()
+  }
+
+  const handleDiscard = async () => {
+    // Only clear active timer in timer mode (not quick entry)
+    if (!isQuickEntry) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await supabase
+          .from('profiles')
+          .update({
+            active_timer_start: null,
+            active_timer_project_id: null,
+            active_timer_category_id: null,
+          })
+          .eq('id', user.id)
+      }
+      resetTimer()
+    }
     onClose()
   }
 
@@ -154,8 +176,10 @@ export function TimeEntryModal({ isOpen, onClose, onSave }: TimeEntryModalProps)
     return `${hours}h ${minutes}m`
   })()
 
+  const modalTitle = isQuickEntry ? 'Quick Time Entry' : 'Review Time Entry'
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Review Time Entry" size="md">
+    <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} size="md">
       <div className="space-y-4">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -213,7 +237,7 @@ export function TimeEntryModal({ isOpen, onClose, onSave }: TimeEntryModalProps)
 
         <div className="flex justify-end space-x-3 pt-4">
           <Button variant="ghost" onClick={handleDiscard}>
-            Discard
+            {isQuickEntry ? 'Cancel' : 'Discard'}
           </Button>
           <Button onClick={handleSave} isLoading={isLoading}>
             Save Entry

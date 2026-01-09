@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent } from '@/components/ui'
+import { Card, CardContent, Button } from '@/components/ui'
 import { TimerDisplay, TimerControls, TimeEntryModal } from '@/components/timer'
 import { useTimerStore } from '@/stores/timer-store'
 import { useAuth } from '@/components/providers'
@@ -11,6 +11,7 @@ import type { TimeEntry, Project, Category } from '@/types/database'
 
 export default function DashboardPage() {
   const [showModal, setShowModal] = useState(false)
+  const [modalMode, setModalMode] = useState<'timer' | 'quickEntry'>('timer')
   const [recentEntries, setRecentEntries] = useState<(TimeEntry & { project?: Project; category?: Category })[]>([])
   const { profile } = useAuth()
   const { stopTimer, resumeTimer, isRunning } = useTimerStore()
@@ -58,6 +59,12 @@ export default function DashboardPage() {
 
   const handleStop = () => {
     stopTimer()
+    setModalMode('timer')
+    setShowModal(true)
+  }
+
+  const handleQuickEntry = () => {
+    setModalMode('quickEntry')
     setShowModal(true)
   }
 
@@ -67,9 +74,14 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Welcome back, {profile?.first_name}</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600">Welcome back, {profile?.first_name}</p>
+        </div>
+        <Button variant="secondary" onClick={handleQuickEntry}>
+          Quick Entry
+        </Button>
       </div>
 
       <Card>
@@ -131,6 +143,7 @@ export default function DashboardPage() {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         onSave={handleSave}
+        mode={modalMode}
       />
     </div>
   )
