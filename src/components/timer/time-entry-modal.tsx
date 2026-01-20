@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Modal, Button, Input, Textarea, Select } from '@/components/ui'
 import { useTimerStore } from '@/stores/timer-store'
 import { createClient } from '@/lib/supabase/client'
-import { formatDateForInput } from '@/lib/utils'
+import { formatDateForInput, parseDuration } from '@/lib/utils'
 import type { Project, Category } from '@/types/database'
 
 interface TimeEntryModalProps {
@@ -29,6 +29,8 @@ export function TimeEntryModal({ isOpen, onClose, onSave, mode = 'timer', onTime
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [entryMode, setEntryMode] = useState<'timeRange' | 'duration'>('timeRange')
+  const [durationInput, setDurationInput] = useState('')
   const supabase = createClient()
 
   useEffect(() => {
@@ -58,6 +60,8 @@ export function TimeEntryModal({ isOpen, onClose, onSave, mode = 'timer', onTime
           categoryId: '',
           notes: '',
         })
+        setEntryMode('timeRange')
+        setDurationInput('')
         setError(null)
       } else if (startTime) {
         // Timer mode: use timer store values
@@ -84,13 +88,29 @@ export function TimeEntryModal({ isOpen, onClose, onSave, mode = 'timer', onTime
       return
     }
 
-    const startDate = new Date(formData.startTime)
-    const endDate = new Date(formData.endTime)
+    let startDate: Date
+    let endDate: Date
 
-    if (endDate <= startDate) {
-      setError('End time must be after start time')
-      setIsLoading(false)
-      return
+    if (isQuickEntry && entryMode === 'duration') {
+      // Duration mode: calculate start time from duration, end time is now
+      const durationSeconds = parseDuration(durationInput)
+      if (!durationSeconds || durationSeconds <= 0) {
+        setError('Please enter a valid duration (e.g., "2h 30m", "45m", "1:30")')
+        setIsLoading(false)
+        return
+      }
+      endDate = new Date()
+      startDate = new Date(endDate.getTime() - durationSeconds * 1000)
+    } else {
+      // Time range mode
+      startDate = new Date(formData.startTime)
+      endDate = new Date(formData.endTime)
+
+      if (endDate <= startDate) {
+        setError('End time must be after start time')
+        setIsLoading(false)
+        return
+      }
     }
 
     if (!formData.projectId && !formData.categoryId) {
@@ -174,6 +194,15 @@ export function TimeEntryModal({ isOpen, onClose, onSave, mode = 'timer', onTime
   }
 
   const duration = (() => {
+    if (isQuickEntry && entryMode === 'duration') {
+      // In duration mode, parse the duration input
+      const seconds = parseDuration(durationInput)
+      if (!seconds) return '0h 0m'
+      const hours = Math.floor(seconds / 3600)
+      const minutes = Math.floor((seconds % 3600) / 60)
+      return `${hours}h ${minutes}m`
+    }
+    // Time range mode
     const start = new Date(formData.startTime)
     const end = new Date(formData.endTime)
     const diff = Math.max(0, end.getTime() - start.getTime())
@@ -193,20 +222,57 @@ export function TimeEntryModal({ isOpen, onClose, onSave, mode = 'timer', onTime
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        {isQuickEntry && (
+          <div className="flex space-x-2">
+            <button
+              type="button"
+              onClick={() => setEntryMode('timeRange')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                entryMode === 'timeRange'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Time Range
+            </button>
+            <button
+              type="button"
+              onClick={() => setEntryMode('duration')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                entryMode === 'duration'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Duration
+            </button>
+          </div>
+        )}
+
+        {(!isQuickEntry || entryMode === 'timeRange') ? (
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Start Time"
+              type="datetime-local"
+              value={formData.startTime}
+              onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
+            />
+            <Input
+              label="End Time"
+              type="datetime-local"
+              value={formData.endTime}
+              onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
+            />
+          </div>
+        ) : (
           <Input
-            label="Start Time"
-            type="datetime-local"
-            value={formData.startTime}
-            onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
+            label="Duration"
+            type="text"
+            value={durationInput}
+            onChange={(e) => setDurationInput(e.target.value)}
+            placeholder="e.g., 2h 30m, 45m, 1:30"
           />
-          <Input
-            label="End Time"
-            type="datetime-local"
-            value={formData.endTime}
-            onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
-          />
-        </div>
+        )}
 
         <div className="bg-gray-50 rounded-lg px-4 py-3">
           <span className="text-sm text-gray-600">Duration: </span>
