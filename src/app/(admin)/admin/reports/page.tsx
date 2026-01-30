@@ -211,7 +211,7 @@ export default function AdminReportsPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <h3 className="text-sm font-medium text-gray-600">By User</h3>
+            <h3 className="text-sm font-medium text-gray-700">By User</h3>
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-1 max-h-32 overflow-y-auto">
@@ -220,8 +220,8 @@ export default function AdminReportsPage() {
                 .slice(0, 5)
                 .map(([name, mins]) => (
                   <div key={name} className="flex justify-between text-sm">
-                    <span className="text-gray-600 truncate">{name}</span>
-                    <span className="font-medium">{formatDurationHuman(mins)}</span>
+                    <span className="text-gray-700 truncate">{name}</span>
+                    <span className="font-medium text-gray-900">{formatDurationHuman(mins)}</span>
                   </div>
                 ))}
             </div>
@@ -230,7 +230,7 @@ export default function AdminReportsPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <h3 className="text-sm font-medium text-gray-600">By Project/Category</h3>
+            <h3 className="text-sm font-medium text-gray-700">By Project/Category</h3>
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-1 max-h-32 overflow-y-auto">
@@ -239,8 +239,8 @@ export default function AdminReportsPage() {
                 .slice(0, 5)
                 .map(([name, mins]) => (
                   <div key={name} className="flex justify-between text-sm">
-                    <span className="text-gray-600 truncate">{name}</span>
-                    <span className="font-medium">{formatDurationHuman(mins)}</span>
+                    <span className="text-gray-700 truncate">{name}</span>
+                    <span className="font-medium text-gray-900">{formatDurationHuman(mins)}</span>
                   </div>
                 ))}
             </div>

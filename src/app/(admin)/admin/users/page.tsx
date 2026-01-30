@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, Button, Modal, Select, Input } from '@/components/ui'
+import { Card, CardContent, Button, Modal, Select } from '@/components/ui'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils'
 import type { Profile } from '@/types/database'
@@ -13,8 +13,9 @@ export default function AdminUsersPage() {
   const [showRoleModal, setShowRoleModal] = useState(false)
   const [showResetModal, setShowResetModal] = useState(false)
   const [newRole, setNewRole] = useState<'user' | 'admin'>('user')
-  const [newPassword, setNewPassword] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+  const [resetSuccess, setResetSuccess] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
   const supabase = createClient()
 
   const fetchUsers = async () => {
@@ -61,16 +62,20 @@ export default function AdminUsersPage() {
   }
 
   const handlePasswordReset = async () => {
-    if (!selectedUser || !newPassword) return
+    if (!selectedUser) return
     setActionLoading(true)
+    setResetError(null)
+    setResetSuccess(false)
 
-    // Note: In production, this would need to use Supabase Admin API
-    // For now, we'll show a message that admin needs to use Supabase dashboard
-    alert('Password reset functionality requires Supabase Admin API. Please use the Supabase dashboard to reset user passwords.')
+    const { error } = await supabase.auth.resetPasswordForEmail(selectedUser.email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
 
-    setShowResetModal(false)
-    setSelectedUser(null)
-    setNewPassword('')
+    if (error) {
+      setResetError(error.message)
+    } else {
+      setResetSuccess(true)
+    }
     setActionLoading(false)
   }
 
@@ -169,7 +174,7 @@ export default function AdminUsersPage() {
       >
         <div className="space-y-4">
           <p className="text-gray-600">
-            Change role for <span className="font-medium">{selectedUser?.first_name} {selectedUser?.last_name}</span>
+            Change role for <span className="font-medium text-gray-900">{selectedUser?.first_name} {selectedUser?.last_name}</span>
           </p>
           <Select
             label="Role"
@@ -194,32 +199,45 @@ export default function AdminUsersPage() {
       {/* Password Reset Modal */}
       <Modal
         isOpen={showResetModal}
-        onClose={() => { setShowResetModal(false); setSelectedUser(null); setNewPassword('') }}
+        onClose={() => { setShowResetModal(false); setSelectedUser(null); setResetSuccess(false); setResetError(null) }}
         title="Reset User Password"
         size="sm"
       >
         <div className="space-y-4">
-          <p className="text-gray-600">
-            Reset password for <span className="font-medium">{selectedUser?.first_name} {selectedUser?.last_name}</span>
-          </p>
-          <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
-            Note: Password reset requires Supabase Admin API access. For now, please use the Supabase dashboard to reset passwords.
-          </p>
-          <Input
-            label="New Password"
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="Enter new password"
-          />
-          <div className="flex justify-end space-x-3 pt-4">
-            <Button variant="ghost" onClick={() => { setShowResetModal(false); setSelectedUser(null); setNewPassword('') }}>
-              Cancel
-            </Button>
-            <Button onClick={handlePasswordReset} isLoading={actionLoading} disabled>
-              Reset Password
-            </Button>
-          </div>
+          {resetSuccess ? (
+            <>
+              <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg">
+                Password reset email sent successfully to {selectedUser?.email}. The user will receive instructions to reset their password.
+              </div>
+              <div className="flex justify-end pt-4">
+                <Button onClick={() => { setShowResetModal(false); setSelectedUser(null); setResetSuccess(false) }}>
+                  Done
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-600">
+                Send a password reset email to <span className="font-medium text-gray-900">{selectedUser?.first_name} {selectedUser?.last_name}</span> ({selectedUser?.email})?
+              </p>
+              <p className="text-sm text-gray-500">
+                The user will receive an email with a link to set a new password.
+              </p>
+              {resetError && (
+                <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+                  {resetError}
+                </div>
+              )}
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button variant="ghost" onClick={() => { setShowResetModal(false); setSelectedUser(null); setResetError(null) }}>
+                  Cancel
+                </Button>
+                <Button onClick={handlePasswordReset} isLoading={actionLoading}>
+                  Send Reset Email
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>

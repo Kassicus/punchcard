@@ -73,7 +73,10 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                  {error}
+                  <p>{error}</p>
+                  <Link href="/forgot-password" className="block mt-2 text-red-600 hover:text-red-500 font-medium underline">
+                    Forgot your password?
+                  </Link>
                 </div>
               )}
 
