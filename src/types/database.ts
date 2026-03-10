@@ -45,6 +45,9 @@ export interface TimeEntry {
   end_time: string
   duration_seconds: number
   notes: string | null
+  is_paid: boolean
+  paid_at: string | null
+  paid_by: string | null
   created_at: string
   updated_at: string
 }
@@ -100,7 +103,7 @@ export interface Database {
       }
       time_entries: {
         Row: TimeEntry
-        Insert: Omit<TimeEntry, 'id' | 'created_at' | 'updated_at' | 'duration_seconds'>
+        Insert: Omit<TimeEntry, 'id' | 'created_at' | 'updated_at' | 'duration_seconds' | 'is_paid' | 'paid_at' | 'paid_by'>
         Update: Partial<Omit<TimeEntry, 'id' | 'created_at' | 'duration_seconds'>>
       }
       audit_logs: {

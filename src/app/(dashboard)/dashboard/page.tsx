@@ -123,9 +123,16 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-gray-900">
-                        {formatDurationHuman(entry.duration_seconds)}
-                      </p>
+                      <div className="flex items-center justify-end space-x-2">
+                        <p className="font-semibold text-gray-900">
+                          {formatDurationHuman(entry.duration_seconds)}
+                        </p>
+                        {entry.is_paid && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            Paid
+                          </span>
+                        )}
+                      </div>
                       {entry.notes && (
                         <p className="text-sm text-gray-600 truncate max-w-xs">
                           {entry.notes}

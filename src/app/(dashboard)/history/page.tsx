@@ -21,6 +21,7 @@ export default function HistoryPage() {
   const [dateTo, setDateTo] = useState('')
   const [projectFilter, setProjectFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [paidFilter, setPaidFilter] = useState<'' | 'paid' | 'unpaid'>('')
 
   const supabase = createClient()
 
@@ -51,6 +52,11 @@ export default function HistoryPage() {
     if (categoryFilter) {
       query = query.eq('category_id', categoryFilter)
     }
+    if (paidFilter === 'paid') {
+      query = query.eq('is_paid', true)
+    } else if (paidFilter === 'unpaid') {
+      query = query.eq('is_paid', false)
+    }
 
     const { data } = await query
 
@@ -77,7 +83,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     fetchEntries()
-  }, [dateFrom, dateTo, projectFilter, categoryFilter])
+  }, [dateFrom, dateTo, projectFilter, categoryFilter, paidFilter])
 
   const handleDelete = async (id: string) => {
     await supabase.from('time_entries').delete().eq('id', id)
@@ -103,7 +109,9 @@ export default function HistoryPage() {
     }
   }
 
-  const totalMinutes = entries.reduce((sum, e) => sum + e.duration_seconds, 0)
+  const totalSeconds = entries.reduce((sum, e) => sum + e.duration_seconds, 0)
+  const paidSeconds = entries.filter(e => e.is_paid).reduce((sum, e) => sum + e.duration_seconds, 0)
+  const unpaidSeconds = totalSeconds - paidSeconds
 
   return (
     <div className="space-y-6">
@@ -114,7 +122,7 @@ export default function HistoryPage() {
 
       <Card>
         <CardContent className="py-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Input
               type="date"
               label="From"
@@ -141,14 +149,26 @@ export default function HistoryPage() {
               onChange={(e) => { setCategoryFilter(e.target.value); setProjectFilter('') }}
               placeholder="All categories"
             />
+            <Select
+              label="Paid Status"
+              options={[
+                { value: 'paid', label: 'Paid' },
+                { value: 'unpaid', label: 'Unpaid' },
+              ]}
+              value={paidFilter}
+              onChange={(e) => setPaidFilter(e.target.value as '' | 'paid' | 'unpaid')}
+              placeholder="All statuses"
+            />
           </div>
         </CardContent>
       </Card>
 
       <div className="bg-blue-50 rounded-lg px-4 py-3">
         <span className="text-blue-700">
-          Total: <span className="font-semibold">{formatDurationHuman(totalMinutes)}</span>
+          Total: <span className="font-semibold">{formatDurationHuman(totalSeconds)}</span>
           {' '}across {entries.length} entries
+          {' '}&middot; <span className="text-green-700">Paid: {formatDurationHuman(paidSeconds)}</span>
+          {' '}&middot; <span className="text-yellow-700">Unpaid: {formatDurationHuman(unpaidSeconds)}</span>
         </span>
       </div>
 
@@ -184,9 +204,16 @@ export default function HistoryPage() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-4">
-                    <span className="font-semibold text-gray-900">
-                      {formatDurationHuman(entry.duration_seconds)}
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-semibold text-gray-900">
+                        {formatDurationHuman(entry.duration_seconds)}
+                      </span>
+                      {entry.is_paid && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                          Paid
+                        </span>
+                      )}
+                    </div>
                     <div className="flex space-x-2">
                       <Button variant="ghost" size="sm" onClick={() => setEditingEntry(entry)}>
                         Edit

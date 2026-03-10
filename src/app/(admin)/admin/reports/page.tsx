@@ -25,12 +25,17 @@ export default function AdminReportsPage() {
   const [userFilter, setUserFilter] = useState('')
   const [projectFilter, setProjectFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [paidFilter, setPaidFilter] = useState<'' | 'paid' | 'unpaid'>('')
 
   // Entry management
   const [selectedEntry, setSelectedEntry] = useState<TimeEntryWithRelations | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkLoading, setBulkLoading] = useState(false)
 
   const supabase = createClient()
 
@@ -74,6 +79,11 @@ export default function AdminReportsPage() {
     if (categoryFilter) {
       query = query.eq('category_id', categoryFilter)
     }
+    if (paidFilter === 'paid') {
+      query = query.eq('is_paid', true)
+    } else if (paidFilter === 'unpaid') {
+      query = query.eq('is_paid', false)
+    }
 
     const { data } = await query
 
@@ -90,7 +100,12 @@ export default function AdminReportsPage() {
 
   useEffect(() => {
     fetchEntries()
-  }, [dateFrom, dateTo, userFilter, projectFilter, categoryFilter])
+  }, [dateFrom, dateTo, userFilter, projectFilter, categoryFilter, paidFilter])
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [dateFrom, dateTo, userFilter, projectFilter, categoryFilter, paidFilter])
 
   const handleRowClick = (entry: TimeEntryWithRelations) => {
     setSelectedEntry(entry)
@@ -110,7 +125,60 @@ export default function AdminReportsPage() {
     fetchEntries()
   }
 
-  const totalMinutes = entries.reduce((sum, e) => sum + e.duration_seconds, 0)
+  const handleSelectAll = () => {
+    if (selectedIds.size === entries.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(entries.map(e => e.id)))
+    }
+  }
+
+  const handleSelectEntry = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const handleMarkPaid = async () => {
+    if (selectedIds.size === 0) return
+    setBulkLoading(true)
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setBulkLoading(false); return }
+
+    await supabase
+      .from('time_entries')
+      .update({ is_paid: true, paid_at: new Date().toISOString(), paid_by: user.id })
+      .in('id', Array.from(selectedIds))
+
+    setSelectedIds(new Set())
+    setBulkLoading(false)
+    fetchEntries()
+  }
+
+  const handleMarkUnpaid = async () => {
+    if (selectedIds.size === 0) return
+    setBulkLoading(true)
+
+    await supabase
+      .from('time_entries')
+      .update({ is_paid: false, paid_at: null, paid_by: null })
+      .in('id', Array.from(selectedIds))
+
+    setSelectedIds(new Set())
+    setBulkLoading(false)
+    fetchEntries()
+  }
+
+  const totalSeconds = entries.reduce((sum, e) => sum + e.duration_seconds, 0)
+  const paidSeconds = entries.filter(e => e.is_paid).reduce((sum, e) => sum + e.duration_seconds, 0)
+  const unpaidSeconds = totalSeconds - paidSeconds
 
   // Group by user
   const byUser = entries.reduce((acc, entry) => {
@@ -127,7 +195,7 @@ export default function AdminReportsPage() {
   }, {} as Record<string, number>)
 
   const exportCSV = () => {
-    const headers = ['Date', 'User', 'Project/Category', 'Start Time', 'End Time', 'Duration (minutes)', 'Notes']
+    const headers = ['Date', 'User', 'Project/Category', 'Start Time', 'End Time', 'Duration (minutes)', 'Notes', 'Paid Status', 'Paid Date']
     const rows = entries.map(e => [
       formatDate(e.start_time),
       e.profile ? `${e.profile.first_name} ${e.profile.last_name}` : '',
@@ -136,6 +204,8 @@ export default function AdminReportsPage() {
       formatTime(e.end_time),
       e.duration_seconds.toString(),
       e.notes || '',
+      e.is_paid ? 'Paid' : 'Unpaid',
+      e.paid_at ? formatDate(e.paid_at) : '',
     ])
 
     const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n')
@@ -162,7 +232,7 @@ export default function AdminReportsPage() {
 
       <Card>
         <CardContent className="py-4">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <Input
               type="date"
               label="From"
@@ -196,16 +266,50 @@ export default function AdminReportsPage() {
               onChange={(e) => { setCategoryFilter(e.target.value); setProjectFilter('') }}
               placeholder="All categories"
             />
+            <Select
+              label="Paid Status"
+              options={[
+                { value: 'paid', label: 'Paid' },
+                { value: 'unpaid', label: 'Unpaid' },
+              ]}
+              value={paidFilter}
+              onChange={(e) => setPaidFilter(e.target.value as '' | 'paid' | 'unpaid')}
+              placeholder="All statuses"
+            />
           </div>
         </CardContent>
       </Card>
+
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center justify-between">
+          <span className="text-sm text-blue-800 font-medium">
+            {selectedIds.size} {selectedIds.size === 1 ? 'entry' : 'entries'} selected
+          </span>
+          <div className="flex items-center space-x-3">
+            <Button size="sm" onClick={handleMarkPaid} isLoading={bulkLoading}>
+              Mark as Paid
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handleMarkUnpaid} isLoading={bulkLoading}>
+              Mark as Unpaid
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+              Clear Selection
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="py-4">
             <p className="text-sm text-gray-600">Total Time</p>
-            <p className="text-2xl font-bold text-gray-900">{formatDurationHuman(totalMinutes)}</p>
+            <p className="text-2xl font-bold text-gray-900">{formatDurationHuman(totalSeconds)}</p>
             <p className="text-sm text-gray-600">{entries.length} entries</p>
+            <div className="mt-2 text-sm space-y-0.5">
+              <p className="text-green-700">Paid: {formatDurationHuman(paidSeconds)}</p>
+              <p className="text-yellow-700">Unpaid: {formatDurationHuman(unpaidSeconds)}</p>
+            </div>
           </CardContent>
         </Card>
 
@@ -262,12 +366,21 @@ export default function AdminReportsPage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
+                  <th className="px-6 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.size === entries.length && entries.length > 0}
+                      onChange={handleSelectAll}
+                      className="rounded border-gray-300"
+                    />
+                  </th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider">Date</th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider">User</th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider">Project/Category</th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider">Time</th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider">Duration</th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider">Notes</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -277,6 +390,14 @@ export default function AdminReportsPage() {
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={() => handleRowClick(entry)}
                   >
+                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(entry.id)}
+                        onChange={() => handleSelectEntry(entry.id)}
+                        className="rounded border-gray-300"
+                      />
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
                       {formatDate(entry.start_time)}
                     </td>
@@ -302,6 +423,17 @@ export default function AdminReportsPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
                       {entry.notes || '-'}
+                    </td>
+                    <td className="px-6 py-4">
+                      {entry.is_paid ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                          Paid
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                          Unpaid
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -395,6 +527,7 @@ function EditEntryModal({
     projectId: entry.project_id || '',
     categoryId: entry.category_id || '',
     notes: entry.notes || '',
+    isPaid: entry.is_paid,
   })
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -407,6 +540,7 @@ function EditEntryModal({
       projectId: entry.project_id || '',
       categoryId: entry.category_id || '',
       notes: entry.notes || '',
+      isPaid: entry.is_paid,
     })
     setError(null)
   }, [entry])
@@ -428,15 +562,32 @@ function EditEntryModal({
     setIsLoading(true)
     setError(null)
 
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const updatePayload: Record<string, unknown> = {
+      start_time: startDate.toISOString(),
+      end_time: endDate.toISOString(),
+      project_id: formData.projectId || null,
+      category_id: formData.categoryId || null,
+      notes: formData.notes || null,
+    }
+
+    // Handle paid status toggle
+    if (formData.isPaid !== entry.is_paid) {
+      if (formData.isPaid) {
+        updatePayload.is_paid = true
+        updatePayload.paid_at = new Date().toISOString()
+        updatePayload.paid_by = user?.id || null
+      } else {
+        updatePayload.is_paid = false
+        updatePayload.paid_at = null
+        updatePayload.paid_by = null
+      }
+    }
+
     const { error: updateError } = await supabase
       .from('time_entries')
-      .update({
-        start_time: startDate.toISOString(),
-        end_time: endDate.toISOString(),
-        project_id: formData.projectId || null,
-        category_id: formData.categoryId || null,
-        notes: formData.notes || null,
-      })
+      .update(updatePayload)
       .eq('id', entry.id)
 
     if (updateError) {
@@ -518,6 +669,32 @@ function EditEntryModal({
           onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
           rows={3}
         />
+
+        <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
+          <div>
+            <p className="text-sm font-medium text-gray-900">Paid Status</p>
+            {entry.paid_at && (
+              <p className="text-xs text-gray-500">
+                Paid on {formatDate(entry.paid_at)}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={formData.isPaid}
+            onClick={() => setFormData(prev => ({ ...prev, isPaid: !prev.isPaid }))}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+              formData.isPaid ? 'bg-green-500' : 'bg-gray-200'
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                formData.isPaid ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
 
         <div className="flex justify-between pt-4">
           <Button variant="danger" onClick={onDelete}>
