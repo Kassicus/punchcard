@@ -60,7 +60,7 @@ export default function AdminReportsPage() {
         *,
         project:projects(*),
         category:categories(*),
-        profile:profiles(*)
+        profile:profiles!user_id(*)
       `)
       .order('start_time', { ascending: false })
 
